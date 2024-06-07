@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saree Chatbot</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            margin-top: 50px;
+        }
+        .btn-speak {
+            background-color: #007bff;
+            color: #fff;
+        }
+        .btn-speak:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">Welcome to the Saree Chatbot!</h1>
+        <form id="chatbot-form" class="mt-4">
+            <div class="form-group">
+                <label for="user_name">User Name:</label>
+                <input type="text" class="form-control" id="user_name" name="user_name" required>
+            </div>
+            <div class="form-group">
+                <label for="colors">Colors (comma-separated):</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="colors" name="colors" required>
+                    <div class="input-group-append">
+                        <button type="button" class="btn btn-speak" id="voice-colors">🎤 Speak</button>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="price_range">Price Range (e.g., 5000-10000):</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="price_range" name="price_range" required>
+                    <div class="input-group-append">
+                        <button type="button" class="btn btn-speak" id="voice-price-range">🎤 Speak</button>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="sorting">Sort by Price:</label>
+                <select class="form-control" id="sorting" name="sorting" required>
+                    <option value="asc">Ascending</option>
+                    <option value="desc">Descending</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="fabric">Fabric:</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="fabric" name="fabric">
+                    <div class="input-group-append">
+                        <button type="button" class="btn btn-speak" id="voice-fabric">🎤 Speak</button>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="work_type">Work Type:</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="work_type" name="work_type">
+                    <div class="input-group-append">
+                        <button type="button" class="btn btn-speak" id="voice-work-type">🎤 Speak</button>
+                    </div>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Get Recommendations</button>
+        </form>
+        <h2 class="mt-5">Recommendations:</h2>
+        <div id="recommendations"></div>
+    </div>
+
+    <script>
+        function initVoiceRecognition(buttonId, inputId) {
+            const button = document.getElementById(buttonId);
+            const input = document.getElementById(inputId);
+            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = "en-US";
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                input.value = transcript;
+            };
+
+            button.addEventListener('click', () => {
+                recognition.start();
+            });
+        }
+
+        initVoiceRecognition('voice-colors', 'colors');
+        initVoiceRecognition('voice-price-range', 'price_range');
+        initVoiceRecognition('voice-fabric', 'fabric');
+        initVoiceRecognition('voice-work-type', 'work_type');
+
+        document.getElementById('chatbot-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const user_name = document.getElementById('user_name').value;
+            const colors = document.getElementById('colors').value.split(',');
+            const price_range = document.getElementById('price_range').value.split('-').map(Number);
+            const sorting = document.getElementById('sorting').value;
+            const fabric = document.getElementById('fabric').value;
+            const work_type = document.getElementById('work_type').value;
+
+            const response = await fetch('https://sa-bot.azurewebsites.net/>', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    user_name,
+                    colors,
+                    price_range,
+                    sorting,
+                    fabric,
+                    work_type
+                })
+            });
+
+            const recommendations = await response.json();
+            const recommendationsDiv = document.getElementById('recommendations');
+            recommendationsDiv.innerHTML = '';
+
+            if (response.ok) {
+                recommendations.forEach(saree => {
+                    const sareeDiv = document.createElement('div');
+                    sareeDiv.className = 'card my-3';
+                    sareeDiv.innerHTML = `
+                        <div class="card-body">
+                            <h5 class="card-title"><strong>Title:</strong> ${saree.Title}</h5>
+                            <p class="card-text"><strong>Price:</strong> ${saree.Price}</p>
+                            <p class="card-text"><strong>Original Price:</strong> ${saree['Original Price']}</p>
+                            <p class="card-text"><strong>Stock Status:</strong> ${saree['out-of-stock']}</p>
+                            <p class="card-text"><strong>Fabric:</strong> ${saree.Fabric}</p>
+                            <p class="card-text"><strong>Work Type:</strong> ${saree['Work Type']}</p>
+                            <a href="${saree.URL}" target="_blank" class="btn btn-primary">Buy Now</a>
+                        </div>
+                    `;
+                    recommendationsDiv.appendChild(sareeDiv);
+                });
+            } else {
+                recommendationsDiv.innerHTML = '<p class="alert alert-warning">Sorry, no sarees match your preferences.</p>';
+            }
+        });
+    </script>
+</body>
+</html>
